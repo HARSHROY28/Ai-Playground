@@ -2,7 +2,7 @@ import type { MetadataRoute } from "next";
 import { TUTORIALS } from "@/data/tutorials";
 
 export default function sitemap(): MetadataRoute.Sitemap {
-  const baseUrl = "https://ai-playground.vercel.app";
+  const baseUrl = "[https://ai-playground-dun.vercel.app](https://ai-playground-dun.vercel.app)";
 
   const tutorialUrls: MetadataRoute.Sitemap = TUTORIALS.map((t) => ({
     url: `${baseUrl}/tutorials/${t.slug}`,
