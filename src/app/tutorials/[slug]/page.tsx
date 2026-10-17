@@ -27,6 +27,7 @@ export async function generateMetadata({
 }
 
 // Sidebar component that uses the slug
+// Sidebar Component with fully clickable Next.js links
 function SidebarNav({ currentSlug }: { currentSlug: string }) {
   const modules = Array.from(new Set(TUTORIALS.map((t) => t.module)));
 
