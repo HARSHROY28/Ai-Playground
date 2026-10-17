@@ -102,7 +102,11 @@ async function LessonContainer({ params }: { params: Promise<{ slug: string }> }
           ))}
         </div>
 
-        <AgentPlayground initialCode={lesson.starterCode} customNodes={lesson.graphNodes} />
+        <AgentPlayground
+  initialCode={lesson.starterCode}
+  customNodes={lesson.graphNodes}
+  testCode={lesson.testCode}
+/>
 
         <div className="rounded-xl border border-amber-500/30 bg-amber-500/5 p-5 mt-8">
           <h3 className="text-sm font-bold text-amber-300 flex items-center gap-2">

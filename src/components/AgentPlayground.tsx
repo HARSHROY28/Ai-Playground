@@ -137,11 +137,13 @@ interface GraphNodeDef {
 interface AgentPlaygroundProps {
   initialCode?: string;
   customNodes?: GraphNodeDef[];
+  testCode?: string;
 }
 
 export default function AgentPlayground({
   initialCode = STARTER_CODE,
   customNodes,
+  testCode,
 }: AgentPlaygroundProps) {
   const [code, setCode] = useState(initialCode);
   const [pyodideReady, setPyodideReady] = useState(false);
@@ -151,10 +153,15 @@ export default function AgentPlayground({
   ]);
   const [trace, setTrace] = useState<TraceStep[]>([]);
   const [activeStepIdx, setActiveStepIdx] = useState<number>(0);
+  const [gradeResult, setGradeResult] = useState<{
+    passed: boolean;
+    message: string;
+  } | null>(null);
   const pyodideRef = useRef<any>(null);
 
   // Reset code & trace whenever the user navigates to a new tutorial page
   useEffect(() => {
+    setGradeResult(null);
     setCode(initialCode);
     setTrace([]);
     setActiveStepIdx(0);
@@ -183,8 +190,8 @@ export default function AgentPlayground({
     loadPyodideEngine();
   }, []);
 
-  const runAgentCode = async () => {
-    if (!pyodideRef.current) return;
+  const runAgentCode = async (): Promise<boolean> => {
+    if (!pyodideRef.current) return false;
     setIsRunning(true);
     const capturedLogs: string[] = [];
 
@@ -206,10 +213,38 @@ export default function AgentPlayground({
           ? capturedLogs
           : ["Executed successfully with zero errors."]
       );
+      return true;
     } catch (err: any) {
       setLogs([`Python Traceback:\n${err.message}`]);
+      return false;
     } finally {
       setIsRunning(false);
+    }
+  };
+
+  const verifyChallenge = async () => {
+    if (!pyodideRef.current || !testCode) return;
+    const ranCleanly = await runAgentCode();
+    if (!ranCleanly) {
+      setGradeResult({
+        passed: false,
+        message: "Fix the Python runtime error in Console Output before verifying.",
+      });
+      return;
+    }
+    try {
+      await pyodideRef.current.runPythonAsync(testCode);
+      setGradeResult({
+        passed: true,
+        message: "All Challenge Assertions Passed! Great job.",
+      });
+    } catch (err: any) {
+      const cleanMsg =
+        err.message.split("AssertionError:")[1]?.trim() || err.message;
+      setGradeResult({
+        passed: false,
+        message: cleanMsg,
+      });
     }
   };
 
@@ -225,7 +260,7 @@ export default function AgentPlayground({
   return (
     <div className="my-8 rounded-xl border border-slate-800 bg-slate-950 text-slate-100 shadow-2xl overflow-hidden">
       {/* Top Bar */}
-      <div className="flex flex-wrap items-center justify-between border-b border-slate-800 bg-slate-900/80 px-4 py-3">
+      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-800 bg-slate-900/80 px-4 py-3">
         <div className="flex items-center gap-2">
           <Cpu className="h-4 w-4 text-emerald-400" />
           <span className="text-sm font-semibold tracking-wide text-slate-200">
@@ -238,7 +273,10 @@ export default function AgentPlayground({
 
         <div className="flex items-center gap-2">
           <button
-            onClick={() => setCode(STARTER_CODE)}
+            onClick={() => {
+              setCode(initialCode);
+              setGradeResult(null);
+            }}
             className="flex items-center gap-1.5 rounded-lg border border-slate-700 bg-slate-800 px-3 py-1.5 text-xs font-medium text-slate-300 hover:bg-slate-700"
           >
             <RotateCcw className="h-3.5 w-3.5" /> Reset
@@ -251,8 +289,40 @@ export default function AgentPlayground({
             <Play className="h-3.5 w-3.5 fill-current" />
             {isRunning ? "Running..." : "Run Agent & Trace"}
           </button>
+          {testCode && (
+            <button
+              onClick={verifyChallenge}
+              disabled={!pyodideReady || isRunning}
+              className="flex items-center gap-1.5 rounded-lg bg-amber-400 px-3.5 py-1.5 text-xs font-semibold text-slate-950 hover:bg-amber-300 disabled:opacity-50"
+            >
+              <CheckCircle2 className="h-3.5 w-3.5" />
+              Verify Challenge
+            </button>
+          )}
         </div>
       </div>
+
+      {/* Challenge Pass / Fail Banner */}
+      {gradeResult && (
+        <div
+          className={`px-4 py-2.5 text-xs font-medium flex items-center justify-between border-b ${
+            gradeResult.passed
+              ? "bg-emerald-500/15 border-emerald-500/30 text-emerald-300"
+              : "bg-rose-500/15 border-rose-500/30 text-rose-300"
+          }`}
+        >
+          <span>
+            {gradeResult.passed ? "✅ PASSED: " : "❌ NOT YET: "}
+            {gradeResult.message}
+          </span>
+          <button
+            onClick={() => setGradeResult(null)}
+            className="text-[11px] underline opacity-75 hover:opacity-100"
+          >
+            Dismiss
+          </button>
+        </div>
+      )}
 
       {/* Main Split View */}
       <div className="grid grid-cols-1 lg:grid-cols-12">

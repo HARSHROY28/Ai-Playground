@@ -16,9 +16,9 @@ export interface TutorialLesson {
   graphNodes: GraphNodeDef[];
   starterCode: string;
   challengePrompt: string;
+  testCode: string; // Python assertions that verify the user solved the challenge
 }
 
-// Make sure 'export' is written right here:
 export const TUTORIALS: TutorialLesson[] = [
   {
     slug: "stategraph-and-cyclic-loops",
@@ -61,7 +61,7 @@ export const TUTORIALS: TutorialLesson[] = [
       "    answer: str",
       "",
       "def retrieve_node(state: AgentState):",
-      "    # Try changing 0.4 to 0.9 to skip the rewrite loop!",
+      "    # CHALLENGE: Change 0.4 to 0.85 so the first retrieval passes the grader!",
       '    return {"docs_score": 0.4 if not state.get("rewritten") else 0.92}',
       "",
       "def grade_documents(state: AgentState):",
@@ -100,7 +100,13 @@ export const TUTORIALS: TutorialLesson[] = [
       'print("Final Answer:", final_state["answer"])',
     ].join("\n"),
     challengePrompt:
-      "Change line 11 from 0.4 to 0.85 and click 'Run Agent & Trace'. Watch how the graph skips rewrite_query and finishes in 4 steps instead of 6!",
+      "Modify retrieve_node on line 12 so the initial docs_score is >= 0.7 (e.g. 0.85), allowing the graph to route directly to generate_answer without triggering rewrite_query!",
+    testCode: [
+      "visited_nodes = [t['node'] for t in _EXECUTION_TRACE]",
+      "assert 'rewrite_query' not in visited_nodes, 'Test Failed: Graph still routed through rewrite_query! Make sure initial docs_score >= 0.7.'",
+      "assert final_state['docs_score'] >= 0.7, 'Test Failed: final_state docs_score must be >= 0.7.'",
+      "assert len(_EXECUTION_TRACE) == 4, f'Expected 4 trace steps (START -> retrieve -> generate_answer -> END), got {len(_EXECUTION_TRACE)}.'",
+    ].join("\n"),
   },
   {
     slug: "typeddict-reducers-and-messages",
@@ -146,6 +152,7 @@ export const TUTORIALS: TutorialLesson[] = [
       "",
       "def tool_executor_node(state: ChatState):",
       '    obs = "MCP Tool [sql_schema]: Found tables [users, orders, embeddings]"',
+      "    # CHALLENGE: Increment tool_calls by 2 instead of 1 to simulate 2 parallel MCP calls",
       "    return {",
       '        "messages": state["messages"] + [obs],',
       '        "tool_calls": state["tool_calls"] + 1',
@@ -174,7 +181,11 @@ export const TUTORIALS: TutorialLesson[] = [
       "    print(m)",
     ].join("\n"),
     challengePrompt:
-      "Step through the nodes using 'Next Node' and watch how the 'messages' array inside the JSON State Inspector grows at every checkpoint instead of being overwritten!",
+      "Update tool_executor_node so that tool_calls increments by 2 (simulating two parallel MCP tool invocations) and verify that res['messages'] preserves all 4 conversation turns!",
+    testCode: [
+      "assert len(res['messages']) == 4, f'Expected 4 messages in history, got {len(res[\"messages\"])}'",
+      "assert res['tool_calls'] == 2, f'Expected tool_calls to equal 2, but got {res[\"tool_calls\"]}. Update line 17!'",
+    ].join("\n"),
   },
   {
     slug: "mcp-server-tool-wiring",
@@ -209,7 +220,7 @@ export const TUTORIALS: TutorialLesson[] = [
       "from typing import TypedDict",
       "from langgraph_mock import StateGraph, START, END",
       "",
-      "# Simulated FastMCP Server Registry",
+      "# CHALLENGE: Add a 'search_docs' key to MCP_TOOLS and route to it in agent_node!",
       "MCP_TOOLS = {",
       '    "query_duckdb": lambda q: f"[DuckDB MCP Result]: 1,420 active AI engineers for ({q})"',
       "}",
@@ -221,13 +232,11 @@ export const TUTORIALS: TutorialLesson[] = [
       "    final_response: str",
       "",
       "def agent_node(state: MCPAgentState):",
-      "    # If we already have tool_output, synthesize the final answer",
       '    if state.get("tool_output"):',
       "        return {",
       '            "selected_tool": "none",',
       '            "final_response": f"Agent Answer based on MCP: {state[\'tool_output\']}"',
       "        }",
-      "    # Otherwise request the MCP tool",
       '    return {"selected_tool": "query_duckdb"}',
       "",
       "def route_after_agent(state: MCPAgentState):",
@@ -258,11 +267,14 @@ export const TUTORIALS: TutorialLesson[] = [
       'print(out["final_response"])',
     ].join("\n"),
     challengePrompt:
-      "Add a second tool called 'search_docs' inside the MCP_TOOLS dictionary on line 6, and route to it from agent_node!",
+      "Add a new tool named 'search_docs' inside MCP_TOOLS (e.g., lambda q: f'Docs for {q}') and change line 21 so agent_node selects 'search_docs' instead of 'query_duckdb'!",
+    testCode: [
+      "assert 'search_docs' in MCP_TOOLS, 'Test Failed: Add \"search_docs\" to the MCP_TOOLS dictionary!'",
+      "assert 'query_duckdb' not in out['tool_output'], 'Test Failed: Make sure agent_node routes to \"search_docs\" instead of \"query_duckdb\"!'",
+    ].join("\n"),
   },
 ];
 
-// Make sure 'export' is written right here too:
 export function getTutorialBySlug(slug: string): TutorialLesson | undefined {
   return TUTORIALS.find((t) => t.slug === slug);
 }
